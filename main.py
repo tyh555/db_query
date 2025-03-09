@@ -1,5 +1,6 @@
 from typing import Any, Dict
 import os 
+import logging
 
 import MySQLdb  
 from mcp.server.fastmcp import FastMCP
@@ -17,10 +18,20 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT", 3306))
 }
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("mysql-mcp-server")
+
 
 # Connect to MySQL database
 def get_connection():
-    return MySQLdb.connect(**DB_CONFIG)
+    try:
+        return MySQLdb.connect(**DB_CONFIG)
+    except MySQLdb.Error as e:
+        print(f"Database connection error: {e}")
+        raise
 
 
 @mcp.resource("mysql://schema")
@@ -65,9 +76,23 @@ def get_schema() -> Dict[str, Any]:
             cursor.close()
         conn.close()
 
+
+def is_safe_query(sql: str) -> bool:
+    """Basic check for potentially unsafe queries"""
+    sql_lower = sql.lower()
+    unsafe_keywords = ["insert", "update", "delete", "drop", "alter", "truncate", "create"]
+    return not any(keyword in sql_lower for keyword in unsafe_keywords)
+
+
 @mcp.tool()
 def query_data(sql: str) -> Dict[str, Any]:
     """Execute read-only SQL queries"""
+    if not is_safe_query(sql):
+        return {
+            "success": False,
+            "error": "Potentially unsafe query detected. Only SELECT queries are allowed."
+        }
+    logger.info(f"Executing query: {sql}")
     conn = get_connection()
     cursor = None
     try:
@@ -100,6 +125,7 @@ def query_data(sql: str) -> Dict[str, Any]:
             cursor.close()
         conn.close()
 
+
 @mcp.resource("mysql://tables")
 def get_tables() -> Dict[str, Any]:
     """Provide database table list"""
@@ -123,7 +149,18 @@ def get_tables() -> Dict[str, Any]:
         conn.close()
 
 
+def validate_config():
+    """Validate database configuration"""
+    required_vars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"]
+    missing = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing:
+        logger.warning(f"Missing environment variables: {', '.join(missing)}")
+        logger.warning("Using default values, which may not work in production.")
+
+
 def main():
+    validate_config()
     print(f"MySQL MCP server started, connected to {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['db']}")
 
 
