@@ -1,10 +1,13 @@
 from typing import Any, Dict
-import os 
+import os
 import logging
 
-import MySQLdb  
+import MySQLdb
 from mcp.server.fastmcp import FastMCP
 
+import dotenv
+
+dotenv.load_dotenv()
 
 # Create MCP server instance
 mcp = FastMCP("mysql-server")
@@ -12,9 +15,9 @@ mcp = FastMCP("mysql-server")
 # Database connection configuration
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "user": os.getenv("DB_USER", "test"),
-    "passwd": os.getenv("DB_PASSWORD", "test"), 
-    "db": os.getenv("DB_NAME", "test_db"),  
+    "user": os.getenv("DB_USER"),
+    "passwd": os.getenv("DB_PASSWORD"),
+    "db": os.getenv("DB_NAME"),
     "port": int(os.getenv("DB_PORT", 3306))
 }
 
@@ -42,19 +45,19 @@ def get_schema() -> Dict[str, Any]:
     try:
         # Create dictionary cursor
         cursor = conn.cursor(MySQLdb.cursors.DictCursor)
-        
+
         # Get all table names
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
         table_names = [list(table.values())[0] for table in tables]
-        
+
         # Get structure for each table
         schema = {}
         for table_name in table_names:
             cursor.execute(f"DESCRIBE `{table_name}`")
             columns = cursor.fetchall()
             table_schema = []
-            
+
             for column in columns:
                 table_schema.append({
                     "name": column["Field"],
@@ -64,9 +67,9 @@ def get_schema() -> Dict[str, Any]:
                     "default": column["Default"],
                     "extra": column["Extra"]
                 })
-            
+
             schema[table_name] = table_schema
-        
+
         return {
             "database": DB_CONFIG["db"],
             "tables": schema
@@ -98,16 +101,16 @@ def query_data(sql: str) -> Dict[str, Any]:
     try:
         # Create dictionary cursor
         cursor = conn.cursor(MySQLdb.cursors.DictCursor)
-        
+
         # Start read-only transaction
         cursor.execute("SET TRANSACTION READ ONLY")
         cursor.execute("START TRANSACTION")
-        
+
         try:
             cursor.execute(sql)
             results = cursor.fetchall()
             conn.commit()
-            
+
             # Convert results to serializable format
             return {
                 "success": True,
@@ -134,11 +137,11 @@ def get_tables() -> Dict[str, Any]:
     try:
         # Create dictionary cursor
         cursor = conn.cursor(MySQLdb.cursors.DictCursor)
-        
+
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
         table_names = [list(table.values())[0] for table in tables]
-        
+
         return {
             "database": DB_CONFIG["db"],
             "tables": table_names
@@ -153,16 +156,24 @@ def validate_config():
     """Validate database configuration"""
     required_vars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"]
     missing = [var for var in required_vars if not os.getenv(var)]
-    
+
     if missing:
         logger.warning(f"Missing environment variables: {', '.join(missing)}")
         logger.warning("Using default values, which may not work in production.")
 
 
+'''def main():
+    validate_config()
+    print(f"MySQL MCP server started, connected to {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['db']}")
+'''
 def main():
     validate_config()
     print(f"MySQL MCP server started, connected to {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['db']}")
+    print("MCP server is running...")
+    mcp.run()
+    print("MCP server exited")  # mcp.run() 提前退出
 
 
 if __name__ == "__main__":
+    main()
     mcp.run()
