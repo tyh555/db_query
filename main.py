@@ -1,179 +1,129 @@
-from typing import Any, Dict
+from flask import Flask, request, jsonify
 import os
-import logging
-
 import MySQLdb
-from mcp.server.fastmcp import FastMCP
+import MySQLdb.cursors
+from dotenv import load_dotenv
+import datetime
+import threading
+import re
 
-import dotenv
+load_dotenv()
 
-dotenv.load_dotenv()
+app = Flask(__name__)
 
-# Create MCP server instance
-mcp = FastMCP("mysql-server")
+LOG_FILE = "logs/query.log"
+LOG_DIR = "logs"
+log_lock = threading.Lock()
 
-# Database connection configuration
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "user": os.getenv("DB_USER"),
-    "passwd": os.getenv("DB_PASSWORD"),
-    "db": os.getenv("DB_NAME"),
-    "port": int(os.getenv("DB_PORT", 3306))
-}
+# 确保日志目录存在
+os.makedirs(LOG_DIR, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("mysql-mcp-server")
+SENSITIVE_FIELDS = {"password", "salary"}
 
+INJECTION_PATTERNS = [
+    r"(--|#|/\*|;|\bOR\b|\bAND\b|\bUNION\b|\bSLEEP\b|\bBENCHMARK\b|\bLOAD_FILE\b|\bINTO\b|\bOUTFILE\b)",
+    r"(['\"]\s*\+|\+\s*['\"])",  # 字符串拼接
+    r"\b1\s*=\s*1\b",
+    r"\b0\s*=\s*0\b",
+    r"\bselect\b.*\bselect\b",  # 子查询嵌套 select select
+]
 
-# Connect to MySQL database
 def get_connection():
-    try:
-        return MySQLdb.connect(**DB_CONFIG)
-    except MySQLdb.Error as e:
-        print(f"Database connection error: {e}")
-        raise
+    return MySQLdb.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER"),
+        passwd=os.getenv("DB_PASSWORD"),
+        db=os.getenv("DB_NAME"),
+        port=int(os.getenv("DB_PORT", 3306)),
+        charset="utf8mb4"
+    )
 
+def log_query(sql):
+    with log_lock:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now().isoformat()}]\n{sql}\n\n")
 
-@mcp.resource("mysql://schema")
-def get_schema() -> Dict[str, Any]:
-    """Provide database table structure information"""
-    conn = get_connection()
-    cursor = None
-    try:
-        # Create dictionary cursor
-        cursor = conn.cursor(MySQLdb.cursors.DictCursor)
+def is_safe_select(sql):
+    # 只允许以SELECT开头，忽略前导空白和大小写
+    sql_strip = sql.strip().lower()
+    return sql_strip.startswith('select')
 
-        # Get all table names
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
-        table_names = [list(table.values())[0] for table in tables]
-
-        # Get structure for each table
-        schema = {}
-        for table_name in table_names:
-            cursor.execute(f"DESCRIBE `{table_name}`")
-            columns = cursor.fetchall()
-            table_schema = []
-
-            for column in columns:
-                table_schema.append({
-                    "name": column["Field"],
-                    "type": column["Type"],
-                    "null": column["Null"],
-                    "key": column["Key"],
-                    "default": column["Default"],
-                    "extra": column["Extra"]
-                })
-
-            schema[table_name] = table_schema
-
-        return {
-            "database": DB_CONFIG["db"],
-            "tables": schema
-        }
-    finally:
-        if cursor:
-            cursor.close()
-        conn.close()
-
-
-def is_safe_query(sql: str) -> bool:
-    """Basic check for potentially unsafe queries"""
+def contains_sensitive_field(sql):
+    # 提取所有字段名（简单正则，适用于SELECT ... FROM ... 语句）
     sql_lower = sql.lower()
-    unsafe_keywords = ["insert", "update", "delete", "drop", "alter", "truncate", "create"]
-    return not any(keyword in sql_lower for keyword in unsafe_keywords)
+    # 只检查select部分
+    m = re.match(r"\s*select\s+(.*?)\s+from\s", sql_lower, re.DOTALL)
+    if not m:
+        return False
+    select_part = m.group(1)
+    # 拆分字段
+    fields = [f.strip().strip('`"') for f in select_part.split(',')]
+    for field in fields:
+        # 只要字段名包含敏感词就拒绝
+        for sensitive in SENSITIVE_FIELDS:
+            if sensitive in field:
+                return True
+    return False
 
+def is_sql_injection(sql):
+    sql_lower = sql.lower()
+    for pattern in INJECTION_PATTERNS:
+        if re.search(pattern, sql_lower):
+            return True
+    return False
 
-@mcp.tool()
-def query_data(sql: str) -> Dict[str, Any]:
-    """Execute read-only SQL queries"""
-    if not is_safe_query(sql):
-        return {
-            "success": False,
-            "error": "Potentially unsafe query detected. Only SELECT queries are allowed."
-        }
-    logger.info(f"Executing query: {sql}")
+@app.route('/schema', methods=['GET'])
+def schema():
     conn = get_connection()
-    cursor = None
+    cursor = conn.cursor(MySQLdb.cursors.DictCursor)
     try:
-        # Create dictionary cursor
-        cursor = conn.cursor(MySQLdb.cursors.DictCursor)
-
-        # Start read-only transaction
-        cursor.execute("SET TRANSACTION READ ONLY")
-        cursor.execute("START TRANSACTION")
-
-        try:
-            cursor.execute(sql)
-            results = cursor.fetchall()
-            conn.commit()
-
-            # Convert results to serializable format
-            return {
-                "success": True,
-                "results": results,
-                "rowCount": len(results)
-            }
-        except Exception as e:
-            conn.rollback()
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    finally:
-        if cursor:
-            cursor.close()
-        conn.close()
-
-
-@mcp.resource("mysql://tables")
-def get_tables() -> Dict[str, Any]:
-    """Provide database table list"""
-    conn = get_connection()
-    cursor = None
-    try:
-        # Create dictionary cursor
-        cursor = conn.cursor(MySQLdb.cursors.DictCursor)
-
         cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
-        table_names = [list(table.values())[0] for table in tables]
-
-        return {
-            "database": DB_CONFIG["db"],
-            "tables": table_names
-        }
+        tables = [list(row.values())[0] for row in cursor.fetchall()]
+        schema = {}
+        for table in tables:
+            cursor.execute(f"DESCRIBE `{table}`")
+            columns = cursor.fetchall()
+            schema[table] = columns
+        return jsonify({"success": True, "schema": schema})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
     finally:
-        if cursor:
-            cursor.close()
+        cursor.close()
         conn.close()
 
+@app.route('/query', methods=['POST'])
+def query():
+    data = request.get_json()
+    sql = data.get("sql")
+    if not sql:
+        return jsonify({"success": False, "error": "Missing SQL statement."}), 400
+    if not is_safe_select(sql):
+        return jsonify({"success": False, "error": "只允许SELECT语句，禁止非只读操作。"}), 403
+    if contains_sensitive_field(sql):
+        return jsonify({"success": False, "error": "禁止查询敏感字段（如 password、salary 等）。"}), 403
+    if is_sql_injection(sql):
+        return jsonify({"success": False, "error": "检测到疑似SQL注入攻击，已拦截。"}), 403
+    log_query(sql)
+    conn = get_connection()
+    cursor = conn.cursor(MySQLdb.cursors.DictCursor)
+    try:
+        cursor.execute(sql)
+        results = cursor.fetchall()
+        return jsonify({"success": True, "results": results, "rowCount": len(results)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    finally:
+        cursor.close()
+        conn.close()
 
-def validate_config():
-    """Validate database configuration"""
-    required_vars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"]
-    missing = [var for var in required_vars if not os.getenv(var)]
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+        return content, 200, {"Content-Type": "text/plain; charset=utf-8"}
+    except FileNotFoundError:
+        return "No logs found.", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
-    if missing:
-        logger.warning(f"Missing environment variables: {', '.join(missing)}")
-        logger.warning("Using default values, which may not work in production.")
-
-
-'''def main():
-    validate_config()
-    print(f"MySQL MCP server started, connected to {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['db']}")
-'''
-def main():
-    validate_config()
-    print(f"MySQL MCP server started, connected to {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['db']}")
-    print("MCP server is running...")
-    mcp.run()
-    print("MCP server exited")  # mcp.run() 提前退出
-
-
-if __name__ == "__main__":
-    main()
-    mcp.run()
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000)

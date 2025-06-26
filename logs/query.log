@@ -1,0 +1,47 @@
+[2025-06-26T15:51:11.862271] 
+SELECT dept_name, building
+FROM department 
+WHERE budget > (SELECT AVG(budget) FROM department); 
+
+[2025-06-26T15:51:26.676866] 
+SELECT title
+FROM course
+WHERE course_id NOT IN (SELECT DISTINCT course_id FROM prereq); 
+
+[2025-06-26T16:08:59.163983]
+SELECT title, credits FROM course ORDER BY title, credits;
+
+[2025-06-26T16:12:52.509385]
+SELECT title, credits FROM course ORDER BY title, credits;
+
+[2025-06-26T16:22:33.190174]
+SELECT title, credits FROM course ORDER BY title, credits;
+
+[2025-06-26T16:37:52.266165]
+SELECT name FROM student;
+
+[2025-06-26T16:51:41.912049]
+SELECT * FROM student;
+
+[2025-06-26T16:55:11.345128]
+SELECT * FROM student;
+
+[2025-06-26T17:01:18.871161]
+SELECT s.name
+FROM student s
+WHERE s.ID IN (
+    SELECT t.s_ID
+    FROM advisor t
+    GROUP BY t.s_ID
+    HAVING COUNT(t.i_ID) > 1
+);
+
+[2025-06-26T17:06:06.771517]
+SELECT name FROM student;
+
+[2025-06-26T17:08:17.419980]
+SELECT name FROM student;
+
+[2025-06-26T17:09:50.679300]
+SELECT * FROM student;
+
