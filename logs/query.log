@@ -523,3 +523,96 @@ HAVING SUM(`credits`) = (
     ) as subquery
 )
 
+[2025-06-27T16:40:58.545157]
+SELECT `title`, `credits` 
+FROM `course` 
+ORDER BY `title`, `credits`;
+
+[2025-06-27T16:41:33.401183]
+SELECT c.`title`, c.`credits`, c.`dept_name` 
+FROM `course` c 
+WHERE c.`course_id` IN (
+    SELECT `course_id` 
+    FROM `prereq` 
+    GROUP BY `course_id` 
+    HAVING COUNT(`prereq_id`) > 1
+)
+
+[2025-06-27T16:42:11.078179]
+SELECT s.`name` 
+FROM `student` s 
+WHERE s.`ID` IN (
+    SELECT a.`s_ID` 
+    FROM `advisor` a 
+    GROUP BY a.`s_ID` 
+    HAVING COUNT(a.`i_ID`) > 1
+)
+
+[2025-06-27T16:42:34.484824]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` NOT IN (
+    SELECT DISTINCT `course_id` 
+    FROM `prereq`
+)
+
+[2025-06-27T16:43:11.343257]
+SELECT `dept_name`, `building` 
+FROM `department` 
+WHERE `budget` > (
+    SELECT AVG(`budget`) 
+    FROM `department`
+)
+
+[2025-06-27T16:43:39.319105]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T16:44:18.511203]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T16:44:30.142378]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+);
+
+[2025-06-27T16:45:14.021101]
+SELECT `title`
+FROM `course`
+WHERE `course_id` IN (
+    SELECT `prereq_id`
+    FROM `prereq`
+    WHERE `course_id` IN (
+        SELECT `course_id`
+        FROM `course`
+        WHERE `title` = 'International Finance'
+    )
+);
+
