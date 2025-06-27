@@ -45,3 +45,51 @@ SELECT name FROM student;
 [2025-06-26T17:09:50.679300]
 SELECT * FROM student;
 
+[2025-06-27T11:27:13.679233]
+SELECT c.title
+FROM course c
+JOIN prereq p ON c.course_id = p.prereq_id
+WHERE p.course_id = 'International Finance';
+
+[2025-06-27T11:30:14.520442]
+SELECT title, credits FROM course ORDER BY title, credits;
+
+[2025-06-27T11:32:46.748229]
+SELECT c.title, c.credits, c.dept_name
+FROM course c
+WHERE (
+    SELECT COUNT(*) 
+    FROM prereq p 
+    WHERE p.course_id = c.course_id
+) > 1;
+
+[2025-06-27T11:33:20.780056]
+SELECT s.name
+FROM student s
+WHERE s.ID IN (
+    SELECT t.s_ID
+    FROM advisor t
+    GROUP BY t.s_ID
+    HAVING COUNT(t.i_ID) > 1
+);
+
+[2025-06-27T11:33:36.088348]
+SELECT title
+FROM course
+WHERE course_id NOT IN (SELECT DISTINCT course_id FROM prereq);
+
+[2025-06-27T11:33:57.086909]
+SELECT dept_name, building 
+FROM department 
+WHERE budget > (SELECT AVG(budget) FROM department);
+
+[2025-06-27T11:34:46.236159]
+SELECT dept_name FROM department ORDER BY budget DESC LIMIT 1;
+
+[2025-06-27T11:34:58.935569]
+SELECT p.title
+FROM course c
+JOIN prereq pr ON c.course_id = pr.course_id
+JOIN course p ON pr.prereq_id = p.course_id
+WHERE c.title = 'International Finance';
+

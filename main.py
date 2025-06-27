@@ -21,11 +21,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 SENSITIVE_FIELDS = {"password", "salary"}
 
 INJECTION_PATTERNS = [
-    r"(--|#|/\*|;|\bOR\b|\bAND\b|\bUNION\b|\bSLEEP\b|\bBENCHMARK\b|\bLOAD_FILE\b|\bINTO\b|\bOUTFILE\b)",
-    r"(['\"]\s*\+|\+\s*['\"])",  # 字符串拼接
-    r"\b1\s*=\s*1\b",
-    r"\b0\s*=\s*0\b",
-    r"\bselect\b.*\bselect\b",  # 子查询嵌套 select select
+    r"(--|#|/\*.*?\*/)",  # 注释符号
+    r";\s*(select|update|delete|insert|\bdrop\b|\bcreate\b)",  # 多语句执行符
+    r"\b(OR|AND)\b\s+[^=]*=",  # OR/AND 语句绕过
+    r"\b(UNION|SLEEP|BENCHMARK|LOAD_FILE|INTO OUTFILE)\b",  # 高危操作
+    r"\b1\s*=\s*1\b", r"\b0\s*=\s*0\b",  # 恒等逻辑
+    r"['\"]\s*\+\s*['\"]",  # 字符串拼接（如 'a' + 'b'）
 ]
 
 def get_connection():
@@ -68,7 +69,7 @@ def contains_sensitive_field(sql):
 def is_sql_injection(sql):
     sql_lower = sql.lower()
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, sql_lower):
+        if re.search(pattern, sql_lower, re.DOTALL):
             return True
     return False
 
