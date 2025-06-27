@@ -1,7 +1,7 @@
 [project]
 name = "sql"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python package for working with SQL databases"
 readme = "README.md"
 requires-python = ">=3.12.2"
 dependencies = [
