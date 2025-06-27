@@ -93,3 +93,433 @@ JOIN prereq pr ON c.course_id = pr.course_id
 JOIN course p ON pr.prereq_id = p.course_id
 WHERE c.title = 'International Finance';
 
+[2025-06-27T12:20:14.715429]
+SELECT `dept_name` FROM `department` ORDER BY `budget` DESC LIMIT 1;
+
+[2025-06-27T12:25:13.531561]
+SELECT `dept_name` FROM `course` GROUP BY `dept_name` HAVING SUM(`credits`) = (SELECT SUM(`credits`) FROM `course` GROUP BY `dept_name` ORDER BY SUM(`credits`) DESC LIMIT 1)
+
+[2025-06-27T12:32:17.853465]
+SELECT `dept_name` FROM `course` GROUP BY `dept_name` HAVING SUM(`credits`) = (SELECT MAX(total_credits) FROM (SELECT SUM(`credits`) as total_credits FROM `course` GROUP BY `dept_name`) as subquery)
+
+[2025-06-27T12:34:14.212429]
+SELECT `title` FROM `course` WHERE `course_id` = (SELECT `prereq_id` FROM `prereq` WHERE `course_id` = (SELECT `course_id` FROM `course` WHERE `title` = 'International Finance'))
+
+[2025-06-27T12:36:51.519868]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T12:38:43.448344]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+);
+
+[2025-06-27T12:42:01.397265]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+);
+
+[2025-06-27T12:42:38.265955]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` IN (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T12:46:03.216698]
+SELECT c.title
+FROM course c
+JOIN prereq p ON c.course_id = p.prereq_id
+WHERE p.course_id = (
+    SELECT course_id
+    FROM course
+    WHERE title = 'International Finance'
+);
+
+[2025-06-27T12:46:41.604300]
+SELECT d.dept_name
+FROM department d
+JOIN course c ON d.dept_name = c.dept_name
+GROUP BY d.dept_name
+ORDER BY SUM(c.credits) DESC
+LIMIT 1;
+
+[2025-06-27T12:48:01.159969]
+SELECT d.department_name
+FROM departments d
+JOIN courses c ON d.department_id = c.department_id
+GROUP BY d.department_id, d.department_name
+ORDER BY SUM(c.credits) DESC
+LIMIT 1;
+
+[2025-06-27T12:48:34.709105]
+SELECT d.department_name
+FROM department d
+JOIN (
+    SELECT department_id
+    FROM course
+    GROUP BY department_id
+    ORDER BY COUNT(*) DESC
+    LIMIT 1
+) AS max_dept
+ON d.department_id = max_dept.department_id;
+
+[2025-06-27T12:50:52.461880]
+SELECT d.department_name
+FROM departments d
+JOIN courses c ON d.department_id = c.department_id
+GROUP BY d.department_id, d.department_name
+ORDER BY SUM(c.credits) DESC
+LIMIT 1;
+
+[2025-06-27T12:53:29.805183]
+SELECT dept_name FROM department ORDER BY budget DESC LIMIT 1;
+
+[2025-06-27T12:56:37.555186]
+SELECT p.title
+FROM course c
+JOIN prereq pr ON c.course_id = pr.course_id
+JOIN course p ON pr.prereq_id = p.course_id
+WHERE c.title = 'International Finance';
+
+[2025-06-27T12:57:11.502045]
+SELECT dept_name FROM department ORDER BY budget DESC LIMIT 1;
+
+[2025-06-27T12:58:16.956511]
+SELECT d.department_name
+FROM departments d
+JOIN courses c ON d.department_id = c.department_id
+GROUP BY d.department_id, d.department_name
+HAVING COUNT(*) = (
+    SELECT COUNT(*)
+    FROM departments d2
+    JOIN courses c2 ON d2.department_id = c2.department_id
+    GROUP BY d2.department_id
+    ORDER BY COUNT(*) DESC
+    LIMIT 1
+);
+
+[2025-06-27T12:59:46.363661]
+SELECT d.name
+FROM departments d
+JOIN courses c ON d.id = c.department_id
+GROUP BY d.id
+HAVING COUNT(*) = (
+    SELECT COUNT(*) AS max_credits
+    FROM courses
+    GROUP BY department_id
+    ORDER BY max_credits DESC
+    LIMIT 1
+);
+
+[2025-06-27T13:01:35.048533]
+SELECT dept_name FROM department ORDER BY budget DESC LIMIT 1;
+
+[2025-06-27T13:02:34.670520]
+SELECT dept_name
+FROM department
+ORDER BY budget DESC
+LIMIT 1;
+
+[2025-06-27T13:02:49.413427]
+SELECT c.title
+FROM course c
+JOIN prereq p ON c.course_id = p.prereq_id
+WHERE p.course_id = 'International Finance';
+
+[2025-06-27T13:04:01.089248]
+SELECT dept_name, building
+FROM department
+WHERE budget > (SELECT AVG(budget) FROM department);
+
+[2025-06-27T13:06:07.652375]
+SELECT dept_name
+FROM department
+WHERE dept_name IN (
+    SELECT dept_name
+    FROM course
+    GROUP BY dept_name
+    HAVING SUM(credits) = (
+        SELECT MAX(total_credits)
+        FROM (
+            SELECT SUM(credits) AS total_credits
+            FROM course
+            GROUP BY dept_name
+        ) AS max_credits
+    )
+);
+
+[2025-06-27T13:06:30.865020]
+SELECT c.title
+FROM course c
+JOIN prereq p ON c.course_id = p.prereq_id
+WHERE p.course_id = (
+    SELECT course_id
+    FROM course
+    WHERE title = 'International Finance'
+);
+
+[2025-06-27T13:08:36.213817]
+SELECT title
+FROM course
+WHERE course_id = (
+    SELECT prereq_id
+    FROM prereq
+    WHERE course_id = (
+        SELECT course_id
+        FROM course
+        WHERE title = 'International Finance'
+    )
+);
+
+[2025-06-27T13:15:25.708062]
+SELECT title
+FROM course
+WHERE course_id = (
+    SELECT prereq_id
+    FROM prereq
+    WHERE course_id = (
+        SELECT course_id
+        FROM course
+        WHERE title = 'International Finance'
+    )
+);
+
+[2025-06-27T13:15:39.091266]
+SELECT dept_name
+FROM department
+WHERE dept_name IN (
+    SELECT dept_name
+    FROM course
+    GROUP BY dept_name
+    HAVING SUM(credits) = (
+        SELECT MAX(total_credits)
+        FROM (
+            SELECT SUM(credits) AS total_credits
+            FROM course
+            GROUP BY dept_name
+        ) AS max_credits
+    )
+);
+
+[2025-06-27T13:16:26.185346]
+SELECT title
+FROM course
+WHERE course_id = (
+    SELECT prereq_id
+    FROM prereq
+    WHERE course_id = (
+        SELECT course_id
+        FROM course
+        WHERE title = 'International Finance'
+    )
+);
+
+[2025-06-27T13:16:37.313412]
+SELECT * FROM employee WHERE id IN (SELECT id FROM employee WHERE salary > 50000);
+
+[2025-06-27T13:19:11.904108]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T13:19:26.040903]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+);
+
+[2025-06-27T13:19:56.895769]
+SELECT `dept_name`, `building` 
+FROM `department` 
+WHERE `budget` > (
+    SELECT AVG(`budget`) 
+    FROM `department`
+)
+
+[2025-06-27T13:20:15.468066]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` NOT IN (
+    SELECT DISTINCT `course_id` 
+    FROM `prereq`
+)
+
+[2025-06-27T14:36:59.782336]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T14:44:36.433607]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T14:46:23.184344]
+SELECT `title`
+FROM `course`
+WHERE `course_id` IN (
+    SELECT `prereq_id`
+    FROM `prereq`
+    WHERE `course_id` IN (
+        SELECT `course_id`
+        FROM `course`
+        WHERE `title` = 'International Finance'
+    )
+);
+
+[2025-06-27T14:46:40.865231]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T14:55:25.660789]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T15:29:22.391818]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T15:31:57.426225]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
+[2025-06-27T15:32:33.911475]
+SELECT `title`, `credits` 
+FROM `course` 
+ORDER BY `title`, `credits`;
+
+[2025-06-27T15:33:37.101290]
+SELECT c.`title`, c.`credits`, c.`dept_name`
+FROM `course` c
+WHERE c.`course_id` IN (
+    SELECT course_id
+    FROM `prereq`
+    GROUP BY course_id
+    HAVING COUNT(*) > 1
+)
+
+[2025-06-27T15:58:27.223181]
+SELECT `title` 
+FROM `course` 
+WHERE `course_id` IN (
+    SELECT `prereq_id` 
+    FROM `prereq` 
+    WHERE `course_id` = (
+        SELECT `course_id` 
+        FROM `course` 
+        WHERE `title` = 'International Finance'
+    )
+)
+
+[2025-06-27T15:58:54.873244]
+SELECT `dept_name` 
+FROM `course` 
+GROUP BY `dept_name` 
+HAVING SUM(`credits`) = (
+    SELECT MAX(total_credits) 
+    FROM (
+        SELECT SUM(`credits`) as total_credits 
+        FROM `course` 
+        GROUP BY `dept_name`
+    ) as subquery
+)
+
